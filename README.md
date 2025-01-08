@@ -35,6 +35,12 @@ npm run build
 
 ## Usage
 
+### Environment Setup
+
+In order for `clmi` to connect to OpenAI it is necessary to set the `CLMI_OPENAI_API_KEY` to your OpenAI API key.
+You can set this in your shell profile, or create a `.env` file by copying `.env.example` and set your key there.
+With the `.env` file in place you can either us a tool like [direnv](https://direnv.net/), or you can use `npm run with-env -- npm start` when launching `clmi`.
+
 ### Running the Program
 
 To start the CLMI tool, run:
