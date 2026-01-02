@@ -111,12 +111,12 @@ const trimmer = trimMessages({
   tokenCounter: (msgs) => {
     const count = msgs.reduce(
       (tokens, msg) => {
-        if ('tokenUsage' in msg.response_metadata && 'totalTokens' in msg.response_metadata['tokenUsage']) {
-          const totalTokens = Number(msg.response_metadata['tokenUsage']['totalTokens'])
+        if ('tokenUsage' in msg.response_metadata && 'totalTokens' in (msg.response_metadata['tokenUsage'] as any)) {
+          const totalTokens = Number((msg.response_metadata['tokenUsage'] as any)['totalTokens'])
           if (!Number.isNaN(totalTokens)) {
             return totalTokens > tokens ? totalTokens : tokens
           } else {
-            console.warn('Invalid token count in response metadata', msg.response_metadata['tokenUsage']['totalTokens'])
+            console.warn('Invalid token count in response metadata', (msg.response_metadata['tokenUsage'] as any)['totalTokens'])
           }
         } else if (msg instanceof AIMessage) {
           console.warn('Missing token count in AIMessage response metadata', msg.response_metadata)
@@ -163,7 +163,7 @@ term.on('line', async (input) => {
       return
     }
 
-    const messages = [
+    const messages: BaseMessage[] = [
       new SystemMessage(compiledBot.systemMessage)
     ]
     if (conversation.length == 0) {
