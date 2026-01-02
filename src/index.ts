@@ -1,6 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai'
 import * as readline from 'node:readline'
-import { MessageContentComplex, trimMessages, SystemMessage, HumanMessage, BaseMessage, AIMessage } from '@langchain/core/messages'
+import { ContentBlock, trimMessages, SystemMessage, HumanMessage, BaseMessage, AIMessage } from '@langchain/core/messages'
 import Handlebars from 'handlebars'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
@@ -65,7 +65,7 @@ const term = readline.createInterface({
   signal: abortController.signal
 })
 
-function contentToString(content: string | MessageContentComplex[]): string {
+function contentToString(content: string | ContentBlock[]): string {
   if (typeof content === 'string') {
     return content
   }
@@ -94,7 +94,7 @@ let compiledBot: CompiledBot = {
   initialPromptTemplate: Handlebars.compile(bot.initialPromptTemplate)
 }
 
-function estimateTokens(content: string | MessageContentComplex[]) {
+function estimateTokens(content: string | ContentBlock[]) {
   content = contentToString(content)
 
   return content.split(/\s+/).length
