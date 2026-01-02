@@ -1,6 +1,8 @@
 import { ChatOpenAI } from '@langchain/openai'
 import * as readline from 'node:readline'
-import { ContentBlock, trimMessages, SystemMessage, HumanMessage, BaseMessage, AIMessage } from '@langchain/core/messages'
+import { ContentBlock, trimMessages, SystemMessage, HumanMessage, BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
+import { Calculator } from '@langchain/community/tools/calculator'
+import { createAgent } from 'langchain'
 import Handlebars from 'handlebars'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
@@ -12,6 +14,8 @@ const llm = new ChatOpenAI({
   temperature: 0,
   apiKey: process.env.CLMI_OPENAI_API_KEY,
 })
+
+const calculator = new Calculator()
 
 type BotDefinition = {
   systemMessage: string,
@@ -32,6 +36,12 @@ let bot: BotDefinition = {
   systemMessage: 'You are a helpful AI assistant. Responses will be displayed on the command line in plain text so please use minimal formatting.',
   initialPromptTemplate: '{{input}}'
 }
+
+let agent = createAgent({
+  model: llm,
+  tools: [calculator],
+  systemPrompt: bot.systemMessage,
+})
 
 /*
  * Process command line arguments:
@@ -154,6 +164,11 @@ term.on('line', async (input) => {
           systemMessage: bot.systemMessage,
           initialPromptTemplate: Handlebars.compile(bot.initialPromptTemplate)
         }
+        agent = createAgent({
+          model: llm,
+          tools: [calculator],
+          systemPrompt: bot.systemMessage,
+        })
         conversation = []
         console.info(`Loaded bot definition from file: ${input.trim().split(' ')[1]}`)
       } catch (e) {
@@ -163,9 +178,7 @@ term.on('line', async (input) => {
       return
     }
 
-    const messages: BaseMessage[] = [
-      new SystemMessage(compiledBot.systemMessage)
-    ]
+    const messages: BaseMessage[] = []
     if (conversation.length == 0) {
       // First user input, use the initial prompt template
       conversation.push(new HumanMessage(compiledBot.initialPromptTemplate({ input })))
@@ -180,7 +193,13 @@ term.on('line', async (input) => {
         if (msg instanceof HumanMessage) {
           return `    >>> Human: ${contentToString(msg.content)}`
         } else if (msg instanceof AIMessage) {
-          return `    <<< Bot: ${contentToString(msg.content)}`
+          if (msg.tool_calls) {
+            return msg.tool_calls.map(tc => `       ==> Tool Call: ${tc.name} (${JSON.stringify(tc.args)})`).join('\n')
+          } else {
+            return `    <<< Bot: ${contentToString(msg.content)}`
+          }
+        } else if (msg instanceof ToolMessage) {
+          return `       <== Tool Result: ${msg.name ?? msg.tool_call_id} (${contentToString(msg.content)})`
         } else {
           return `    ??? ${msg.constructor.name}, ${contentToString(msg.content)}`
         }
@@ -188,12 +207,34 @@ term.on('line', async (input) => {
       messages.push(...conversation)
     }
 
-    // Invoke the LLM to generate new output
-    const res = await llm.invoke(messages)
+    // Invoke the agent to generate new output
+    const res = await agent.invoke({ messages })
 
-    conversation.push(res)
+    // The agent returns all messages including input and new ones
+    // Find messages that are new (after our input messages)
+    const inputMessageCount = messages.length
+    const newMessages = res.messages.slice(inputMessageCount)
+    
+    // Add all new messages (tool calls, tool results, final response) to conversation
+    conversation.push(...newMessages)
 
-    process.stdout.write((typeof res.content === 'string' ? res.content : contentToString(res.content)) + '\n\n')
+    // Find the last AIMessage as the final response to display
+    const finalResponse = newMessages
+      .filter(msg => msg instanceof AIMessage)
+      .pop()
+    
+    if (finalResponse) {
+      const responseContent = typeof finalResponse.content === 'string' 
+        ? finalResponse.content 
+        : contentToString(finalResponse.content)
+      process.stdout.write(responseContent + '\n\n')
+    } else {
+      // Fallback: display the last message if no AIMessage found
+      const lastMessage = newMessages[newMessages.length - 1]
+      if (lastMessage) {
+        process.stdout.write(contentToString(lastMessage.content) + '\n\n')
+      }
+    }
 
     // Prompt the user for the next input
     term.prompt()

@@ -18,7 +18,9 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@langchain/core": "^1.1.8",
     "@langchain/openai": "^1.2.0",
+    "@langchain/community": "^1.1.1",
     "@types/yargs": "^17.0.33",
     "handlebars": "^4.7.8",
     "langchain": "^1.2.3",
