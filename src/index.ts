@@ -8,11 +8,28 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import fs from 'node:fs/promises'
 import z from 'zod'
+import { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+
+/**
+ * Custom callback handler that streams tokens to stdout as they arrive
+ */
+class StreamingCallbackHandler extends BaseCallbackHandler {
+  name = 'StreamingCallbackHandler'
+
+  handleLLMNewToken(token: string): void {
+    process.stdout.write(token)
+  }
+}
+
+// Create streaming callback handler for this invocation
+const streamingHandler = new StreamingCallbackHandler()
 
 const llm = new ChatOpenAI({
   model: "gpt-4o-mini",
-  temperature: 0,
+  temperature: 0.4,
   apiKey: process.env.CLMI_OPENAI_API_KEY,
+  streaming: true,
+  // useResponsesApi: true,
 })
 
 const calculator = new Calculator()
@@ -207,8 +224,14 @@ term.on('line', async (input) => {
       messages.push(...conversation)
     }
 
-    // Invoke the agent to generate new output
-    const res = await agent.invoke({ messages })
+    // Invoke the agent to generate new output with streaming
+    const res = await agent.invoke(
+      { messages },
+      { callbacks: [streamingHandler] }
+    )
+
+    // Write a newline after streaming completes
+    process.stdout.write('\n\n')
 
     // The agent returns all messages including input and new ones
     // Find messages that are new (after our input messages)
@@ -217,24 +240,6 @@ term.on('line', async (input) => {
     
     // Add all new messages (tool calls, tool results, final response) to conversation
     conversation.push(...newMessages)
-
-    // Find the last AIMessage as the final response to display
-    const finalResponse = newMessages
-      .filter(msg => msg instanceof AIMessage)
-      .pop()
-    
-    if (finalResponse) {
-      const responseContent = typeof finalResponse.content === 'string' 
-        ? finalResponse.content 
-        : contentToString(finalResponse.content)
-      process.stdout.write(responseContent + '\n\n')
-    } else {
-      // Fallback: display the last message if no AIMessage found
-      const lastMessage = newMessages[newMessages.length - 1]
-      if (lastMessage) {
-        process.stdout.write(contentToString(lastMessage.content) + '\n\n')
-      }
-    }
 
     // Prompt the user for the next input
     term.prompt()
