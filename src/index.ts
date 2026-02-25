@@ -1,14 +1,14 @@
-import { ChatOpenAI } from '@langchain/openai'
-import * as readline from 'node:readline'
-import { ContentBlock, trimMessages, SystemMessage, HumanMessage, BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
 import { Calculator } from '@langchain/community/tools/calculator'
-import { createAgent } from 'langchain'
+import { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+import { ContentBlock, trimMessages, HumanMessage, BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
+import { ChatOpenAI } from '@langchain/openai'
 import Handlebars from 'handlebars'
+import { createAgent } from 'langchain'
+import fs from 'node:fs/promises'
+import * as readline from 'node:readline'
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import fs from 'node:fs/promises'
 import z from 'zod'
-import { BaseCallbackHandler } from '@langchain/core/callbacks/base'
 
 /**
  * Custom callback handler that streams tokens to stdout as they arrive
@@ -29,7 +29,7 @@ const llm = new ChatOpenAI({
   temperature: 0.4,
   apiKey: process.env.CLMI_OPENAI_API_KEY,
   streaming: true,
-  // useResponsesApi: true,
+  useResponsesApi: true,
 })
 
 const calculator = new Calculator()
